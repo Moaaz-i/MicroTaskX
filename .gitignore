@@ -1,1 +1,3 @@
 .clangd
+.grease-build
+compile_commands.json
