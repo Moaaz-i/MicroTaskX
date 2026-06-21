@@ -1,8 +1,8 @@
 /*
  * UMOZ Library Implementation File
  * ----------------------------------------------------------------------------
- * Implements Cross-platform abstractions, Smart Sleep low-power management,
- * CPU benchmarking, and the core priority-aware task execution loop.
+ * Implements the Singleton pattern core, real-time CPU benchmark calibration,
+ * EMA filtering arithmetic, and the priority-aware task dispatcher loop.
  * ----------------------------------------------------------------------------
  */
 
@@ -15,9 +15,8 @@ UMOZ::UMOZ() {
   _idleCounter = 0;
   _maxIdle = 0;
   _cpuCheckMillis = 0;
-  _taskCount = 0;
-  _smartSleepEnabled = false;
 
+  _taskCount = 0;
   for(uint8_t i = 0; i < UMOZ_MAX_TASKS; i++) {
      _tasks[i].isActive = false;
   }
@@ -31,7 +30,6 @@ void UMOZ::begin(uint8_t pin) {
 void UMOZ::initLibrary() {
   #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
     ADCSRA = (ADCSRA & 0xf8) | 0x04;
-  #elif defined(ARDUINO_ARCH_ESP32)
   #endif
 
   uint32_t startWin = millis();
@@ -101,21 +99,14 @@ void UMOZ::runTasks() {
   uint32_t currentMillis = millis();
   int targetIndex = -1;
   int highestPriority = -1;
-  uint32_t minTimeToNextTask = 0xFFFFFFFF;
 
   for (uint8_t i = 0; i < _taskCount; i++) {
     if (_tasks[i].isActive) {
-      uint32_t timeElapsed = currentMillis - _tasks[i].lastRun;
-
-      if (timeElapsed >= _tasks[i].interval) {
+      if (currentMillis - _tasks[i].lastRun >= _tasks[i].interval) {
+        // العثور على المهمة المستحقة ذات الأولوية الأعلى لضمان التنفيذ الحرج
         if ((int)_tasks[i].priority > highestPriority) {
           highestPriority = (int)_tasks[i].priority;
           targetIndex = i;
-        }
-      } else {
-        uint32_t timeLeft = _tasks[i].interval - timeElapsed;
-        if (timeLeft < minTimeToNextTask) {
-          minTimeToNextTask = timeLeft;
         }
       }
     }
@@ -123,26 +114,6 @@ void UMOZ::runTasks() {
 
   if (targetIndex != -1) {
     _tasks[targetIndex].taskFunction();
-    _tasks[targetIndex].lastRun = millis();
-  } else {
-    if (_smartSleepEnabled && minTimeToNextTask > 5) {
-      enterLowPowerSleep();
-    }
+    _tasks[targetIndex].lastRun = currentMillis;
   }
-}
-
-void UMOZ::enterLowPowerSleep() {
-  #if defined(__AVR__)
-    set_sleep_mode(SLEEP_MODE_IDLE);
-    sleep_enable();
-
-    power_adc_disable();
-    power_spi_disable();
-
-    sleep_cpu();
-
-    sleep_disable();
-    power_all_enable();
-  ##elif defined(ARDUINO_ARCH_ESP32)
-  #endif
 }

@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------
  * Description: An ultra-lightweight, high-performance Arduino library designed
  * to simplify multitasking and optimize system resource management.
- * Version: 2.0.0 (Cross-Platform & Smart Sleep Edition)
+ * Version: 1.2.0 (Priority-Scheduler & Diagnostics Edition)
  * ----------------------------------------------------------------------------
  */
 
@@ -11,11 +11,6 @@
 #define UMOZ_h
 
 #include "Arduino.h"
-
-#if defined(__AVR__)
-  #include <avr/sleep.h>
-  #include <avr/power.h>
-#endif
 
 #ifdef UMOZ_DEBUG_MODE
   #define UMOZ_PRINT(x) Serial.print(x)
@@ -56,7 +51,6 @@ class UMOZ {
 
     UMOZ_Task _tasks[UMOZ_MAX_TASKS];
     uint8_t _taskCount;
-    bool _smartSleepEnabled;
 
     UMOZ();
     UMOZ(const UMOZ&) = delete;
@@ -77,9 +71,6 @@ class UMOZ {
 
     bool addTask(umoz_task_t func, uint32_t intervalMs, UMOZPriority priority = UMOZ_MEDIUM);
     void runTasks();
-
-    void enableSmartSleep(bool enable) { _smartSleepEnabled = enable; }
-    void enterLowPowerSleep();
 
     inline void benchTick() { _idleCounter++; }
 
