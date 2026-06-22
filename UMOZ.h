@@ -11,7 +11,6 @@
 #define UMOZ_h
 
 #include "Arduino.h"
-#include <cstdint>
 
 #if defined(__AVR__)
   #include <avr/sleep.h>
