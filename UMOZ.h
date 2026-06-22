@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------
  * Description: An ultra-lightweight, high-performance Arduino library designed
  * to simplify multitasking and optimize system resource management.
- * Version: 2.0.0 (Cross-Platform & Smart Sleep Edition)
+ * Version: 2.5.0 (Optimized Memory & High-Efficiency Edition)
  * ----------------------------------------------------------------------------
  */
 
@@ -11,6 +11,7 @@
 #define UMOZ_h
 
 #include "Arduino.h"
+#include <cstdint>
 
 #if defined(__AVR__)
   #include <avr/sleep.h>
@@ -25,11 +26,13 @@
   #define UMOZ_PRINTLN(x)
 #endif
 
-#define UMOZ_MAX_TASKS 5
+#ifndef UMOZ_MAX_TASKS
+  #define UMOZ_MAX_TASKS 5
+#endif
 
 typedef void (*umoz_task_t)();
 
-enum UMOZPriority {
+enum UMOZPriority : uint8_t {
     UMOZ_LOW = 0,
     UMOZ_MEDIUM = 1,
     UMOZ_HIGH = 2
@@ -39,15 +42,14 @@ struct UMOZ_Task {
     void (*taskFunction)();
     uint32_t interval;
     uint32_t lastRun;
-    UMOZPriority priority;
-    bool isActive;
+    uint8_t priority : 2;
+    uint8_t isActive : 1;
 };
 
 class UMOZ {
   private:
     uint8_t _pin;
     uint32_t _previousMillisBlink;
-    uint32_t _previousMillisButton;
     int _smoothedAnalog;
 
     uint32_t _idleCounter;
@@ -70,8 +72,6 @@ class UMOZ {
 
     void begin(uint8_t pin);
     void blink(uint32_t delayTime);
-    int smoothRead(uint8_t analogPin);
-    bool isButtonPressed(uint8_t buttonPin);
     void initLibrary();
     int getCPUUsage();
 
@@ -83,13 +83,36 @@ class UMOZ {
 
     inline void benchTick() { _idleCounter++; }
 
-    inline void toggle(uint8_t pin) {
+    template <uint8_t PIN>
+    inline void toggleFast() {
       #if defined(__AVR__)
-        *portInputRegister(digitalPinToPort(pin)) = digitalPinToBitMask(pin);
+        *portInputRegister(digitalPinToPort(PIN)) = digitalPinToBitMask(PIN);
       #else
-        digitalWrite(pin, !digitalRead(pin));
+        digitalWrite(PIN, !digitalRead(PIN));
       #endif
     }
+
+    inline void toggle(uint8_t pin) {
+      digitalWrite(pin, !digitalRead(pin));
+    }
+    template <uint8_t ANALOG_PIN>
+    int smoothReadFast() {
+      int newRead = analogRead(ANALOG_PIN);
+      _smoothedAnalog = (_smoothedAnalog * 7 + newRead) >> 3;
+      return _smoothedAnalog;
+    }
+    int smoothRead(uint8_t analogPin);
+
+    bool isButtonPressed(uint8_t buttonPin, uint32_t &lastDebounceTime) {
+      if (digitalRead(buttonPin) == HIGH) {
+        if (millis() - lastDebounceTime >= 50) {
+          lastDebounceTime = millis();
+          return true;
+        }
+      }
+      return false;
+    }
+    bool isButtonPressed(uint8_t buttonPin);
 
     inline int toPercentage(int rawValue, int minRaw, int maxRaw) {
       return constrain(map(rawValue, minRaw, maxRaw, 0, 100), 0, 100);

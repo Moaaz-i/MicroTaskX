@@ -1,16 +1,7 @@
-/*
- * UMOZ Library Implementation File
- * ----------------------------------------------------------------------------
- * Implements Cross-platform abstractions, Smart Sleep low-power management,
- * CPU benchmarking, and the core priority-aware task execution loop.
- * ----------------------------------------------------------------------------
- */
-
 #include "UMOZ.h"
 
 UMOZ::UMOZ() {
   _previousMillisBlink = 0;
-  _previousMillisButton = 0;
   _smoothedAnalog = 0;
   _idleCounter = 0;
   _maxIdle = 0;
@@ -31,29 +22,29 @@ void UMOZ::begin(uint8_t pin) {
 void UMOZ::initLibrary() {
   #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
     ADCSRA = (ADCSRA & 0xf8) | 0x04;
-  #elif defined(ARDUINO_ARCH_ESP32)
   #endif
 
   uint32_t startWin = millis();
   _idleCounter = 0;
-  while (millis() - startWin < 100) {
+  while (millis() - startWin < 50) {
     _idleCounter++;
   }
-  _maxIdle = _idleCounter * 10;
+  _maxIdle = _idleCounter * 20;
   _idleCounter = 0;
   _cpuCheckMillis = millis();
 }
 
 int UMOZ::getCPUUsage() {
-  if (millis() - _cpuCheckMillis >= 1000) {
-    if (_idleCounter > _maxIdle) _maxIdle = _idleCounter;
+  uint32_t currentMillis = millis();
+  if (currentMillis - _cpuCheckMillis >= 1000) {
+    if (_maxIdle == 0) _maxIdle = 1;
 
-    int usage = 100 - ((_idleCounter * 100) / (_maxIdle == 0 ? 1 : _maxIdle));
+    long usage = 100 - (((long)_idleCounter * 100) / _maxIdle);
     usage = constrain(usage, 0, 100);
 
     _idleCounter = 0;
-    _cpuCheckMillis = millis();
-    return usage;
+    _cpuCheckMillis = currentMillis;
+    return (int)usage;
   }
   return -1;
 }
@@ -62,7 +53,7 @@ void UMOZ::blink(uint32_t delayTime) {
   uint32_t currentMillis = millis();
   if (currentMillis - _previousMillisBlink >= delayTime) {
     _previousMillisBlink = currentMillis;
-    toggle(_pin);
+    digitalWrite(_pin, !digitalRead(_pin));
   }
 }
 
@@ -73,15 +64,8 @@ int UMOZ::smoothRead(uint8_t analogPin) {
 }
 
 bool UMOZ::isButtonPressed(uint8_t buttonPin) {
-  if (digitalRead(buttonPin) == HIGH) {
-    if (millis() - _previousMillisButton >= 50) {
-      _previousMillisButton = millis();
-      return true;
-    }
-  } else {
-    _previousMillisButton = millis();
-  }
-  return false;
+  static uint32_t defaultDebounce = 0;
+  return isButtonPressed(buttonPin, defaultDebounce);
 }
 
 bool UMOZ::addTask(umoz_task_t func, uint32_t intervalMs, UMOZPriority priority) {
@@ -89,7 +73,7 @@ bool UMOZ::addTask(umoz_task_t func, uint32_t intervalMs, UMOZPriority priority)
     _tasks[_taskCount].taskFunction = func;
     _tasks[_taskCount].interval = intervalMs;
     _tasks[_taskCount].lastRun = millis();
-    _tasks[_taskCount].priority = priority;
+    _tasks[_taskCount].priority = static_cast<uint8_t>(priority);
     _tasks[_taskCount].isActive = true;
     _taskCount++;
     return true;
@@ -108,8 +92,8 @@ void UMOZ::runTasks() {
       uint32_t timeElapsed = currentMillis - _tasks[i].lastRun;
 
       if (timeElapsed >= _tasks[i].interval) {
-        if ((int)_tasks[i].priority > highestPriority) {
-          highestPriority = (int)_tasks[i].priority;
+        if (static_cast<int>(_tasks[i].priority) > highestPriority) {
+          highestPriority = static_cast<int>(_tasks[i].priority);
           targetIndex = i;
         }
       } else {
@@ -135,14 +119,12 @@ void UMOZ::enterLowPowerSleep() {
   #if defined(__AVR__)
     set_sleep_mode(SLEEP_MODE_IDLE);
     sleep_enable();
-
     power_adc_disable();
     power_spi_disable();
-
     sleep_cpu();
-
     sleep_disable();
     power_all_enable();
+    _idleCounter += 120;
   #elif defined(ARDUINO_ARCH_ESP32)
   #endif
 }

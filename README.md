@@ -1,33 +1,31 @@
-# UMOZ 🚀
-
+UMOZ 🚀
 An ultra-lightweight, high-performance multitasking framework and micro-RTOS designed for Arduino. UMOZ maximizes CPU efficiency by eliminating blocking delays, introducing independent macro-based timers, an advanced background task scheduler, and real-time CPU load profiling.
 
----
+✨ Features
+Micro-RTOS Task Scheduler: Register background tasks using function pointers without dynamic memory allocation (RAM safe).
 
-## ✨ Features
+Independent Macro Timers (UMOZ_EVERY): Create non-blocking independent intervals easily on any line using token-pasting macro expansions.
 
-* **Micro-RTOS Task Scheduler:** Register background tasks using function pointers without dynamic memory allocation (RAM safe).
-* **Independent Macro Timers (`UMOZ_EVERY`):** Create non-blocking independent intervals easily on any line using token-pasting macro expansions.
-* **Real-time CPU Profiling:** Monitor actual CPU load percentage dynamically via free idle-loop calculation.
-* **Turbo ADC Speed:** Injects hardware register tweaks to speed up analog readings by up to 8x on supported AVR boards.
-* **Direct Port Manipulation:** High-speed `toggle()` routine that executes in a single clock cycle on AVR microcontrollers.
-* **Zero-Overhead Smoothing:** Built-in Exponential Moving Average (EMA) filter for analog inputs to keep the loop fluid and non-blocking.
-* **Hardware Switch Debouncing:** Built-in non-blocking button press stabilization.
+Real-time CPU Profiling: Monitor actual CPU load percentage dynamically via free idle-loop calculation.
 
----
+Turbo ADC Speed: Injects hardware register tweaks to speed up analog readings by up to 8x on supported AVR boards.
 
-## 📦 Installation
+Direct Port Manipulation: High-speed toggle() routine that executes in a single clock cycle on AVR microcontrollers.
 
-1. Download this repository as a `.ZIP` file.
-2. Open your Arduino IDE.
-3. Go to **Sketch** -> **Include Library** -> **Add .ZIP Library...**
-4. Select the downloaded `UMOZ.zip` file.
+Zero-Overhead Smoothing: Built-in Exponential Moving Average (EMA) filter for analog inputs to keep the loop fluid and non-blocking.
 
----
+Hardware Switch Debouncing: Built-in non-blocking button press stabilization.
 
-## 🛠️ Quick Start & Usage
+📦 Installation
+Download this repository as a .ZIP file.
 
-Here is a full demonstration of how UMOZ simplifies multi-tasking without messy bracket configurations or blocking delays:
+Open your Arduino IDE.
+
+Go to Sketch → Include Library → Add .ZIP Library…
+
+Select the downloaded UMOZ.zip file.
+
+🛠️ Quick Start & Usage
 
 ```cpp
 #include <UMOZ.h>
@@ -40,7 +38,7 @@ const uint8_t SENSOR_PIN = A0;
 void readSensorTask() {
   int filteredValue = tool.smoothRead(SENSOR_PIN);
   int percentage = tool.toPercentage(filteredValue, 0, 1023);
-  
+
   Serial.print(F("[Task 1] Sensor Value: "));
   Serial.print(filteredValue);
   Serial.print(F(" | Percentage: "));
@@ -60,14 +58,14 @@ void monitorCPUTask() {
 
 UMOZ_START()
   Serial.begin(9600);
-  
+
   // Initialize Hardware Components
   tool.begin(LED_PIN);
   pinMode(BUTTON_PIN, INPUT);
 
-  // Register Background Tasks to the Scheduler (Function, Interval in ms)
-  tool.addTask(readSensorTask, 500);  // Runs every 500ms
-  tool.addTask(monitorCPUTask, 2000); // Runs every 2000ms
+  // Register Background Tasks to the Scheduler
+  tool.addTask(readSensorTask, 500);   // Runs every 500ms
+  tool.addTask(monitorCPUTask, 2000);  // Runs every 2000ms
 
 UMOZ_RUN()
   // 1. Independent Multi-Timer (Flashes LED every 1000ms)
@@ -87,3 +85,4 @@ UMOZ_RUN()
   }
 
 UMOZ_END
+```
