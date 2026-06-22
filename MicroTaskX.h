@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------
  * Description: An ultra-lightweight, high-performance Arduino library designed
  * to simplify multitasking and optimize system resource management.
- * Version: 2.5.١ (Optimized Memory & High-Efficiency Edition)
+ * Version: 2.6.0 (Optimized Memory & High-Efficiency Edition)
  * ----------------------------------------------------------------------------
 */
 
