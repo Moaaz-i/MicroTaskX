@@ -6,6 +6,6 @@ MTX_START()
   pinMode(LED, OUTPUT);
 MTX_RUN()
   MTX_EVERY_MS(500) {
-    mtx.toggle(LED);
+    MTXUtils::toggleFast<LED>();
   }
 MTX_END

@@ -14,5 +14,4 @@ MTX_START()
   mtx.addTask(taskA, 500, MTX_MEDIUM);
   mtx.addTask(taskB, 2000, MTX_HIGH);
 MTX_RUN()
-  // loop remains clean
 MTX_END

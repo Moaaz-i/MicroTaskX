@@ -1,8 +1,8 @@
 {
   "name": "MicroTaskX",
-  "version": "v2.6.0",
-  "description": "An ultra-lightweight, high-performance Arduino multitasking framework featuring a priority-based scheduler, macro-driven non-blocking timers, real-time CPU profiling, and zero-overhead analog smoothing.",
-  "keywords": "multitasking, scheduler, task-manager, cpu-profiling, non-blocking, timing, fast-adc, ema-filter, micro-rtos, performance",
+  "version": "3.0.0",
+  "description": "An ultra-lightweight, high-performance modular micro-RTOS and multitasking framework featuring a template-driven priority scheduler, runtime task controls, macro-driven non-blocking timers, smart power management, and real-time CPU profiling.",
+  "keywords": "multitasking, scheduler, task-manager, cpu-profiling, non-blocking, timing, fast-adc, ema-filter, micro-rtos, modular, low-power, smart-sleep",
   "authors": [
     {
       "name": "Moaaz Yahia Shrif",

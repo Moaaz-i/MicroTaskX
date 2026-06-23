@@ -1,0 +1,17 @@
+/*
+ * MicroTaskX Library for Arduino
+ * ----------------------------------------------------------------------------
+ * Version: 3.0.0 (Modular & High-Performance Edition)
+ * ----------------------------------------------------------------------------
+ */
+
+#ifndef MICROTASKX_H
+#define MICROTASKX_H
+
+#include "MTXKernel.h"
+#include "MTXUtils.h"
+
+typedef MicroTaskXKernel<5> MicroTaskX;
+#define mtx MicroTaskX::getInstance()
+
+#endif
