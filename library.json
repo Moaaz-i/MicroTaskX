@@ -1,8 +1,8 @@
 {
   "name": "MicroTaskX",
-  "version": "3.1.0",
-  "description": "An ultra-lightweight, high-performance modular micro-RTOS and multitasking framework featuring a template-driven priority scheduler, runtime task controls, macro-driven non-blocking timers, smart power management, real-time CPU profiling, and advanced control utilities.",
-  "keywords": "multitasking, scheduler, task-manager, cpu-profiling, non-blocking, timing, fast-adc, ema-filter, micro-rtos, modular, low-power, smart-sleep, pid-control, lcd-optimization, circular-queue",
+  "version": "3.1.1",
+  "description": "A modular micro-RTOS for Arduino with priority scheduling, task args, microsecond precision, WDT, ISR queuing, cooperative coroutines, inter-task signals and mutexes, real-time CPU profiling, smart sleep, PID with anti-windup, Kalman filter, software PWM, rotary encoder, EMA/moving-average smoothing, battery estimation, CRC8, LCD smart refresh, typewriter effect, and circular queue.",
+  "keywords": "multitasking, scheduler, task-manager, cpu-profiling, non-blocking, timing, fast-adc, ema-filter, micro-rtos, modular, low-power, smart-sleep, pid-control, kalman-filter, software-pwm, rotary-encoder, watchdog, isr-queuing, coroutines, mutexes, signals, crc8, battery-monitor, lcd-optimization, circular-queue",
   "authors": [
     {
       "name": "Moaaz Yahia Shrif",

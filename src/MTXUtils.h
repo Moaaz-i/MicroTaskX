@@ -26,12 +26,52 @@ struct MTXTypewriter {
     size_t currentIndex;
 };
 
+// Feature 7: Kalman Filter
+struct MTX_Kalman {
+    float q; // process noise covariance
+    float r; // measurement noise covariance
+    float x; // value
+    float p; // estimation error covariance
+    float k; // kalman gain
+    MTX_Kalman() : q(0.125f), r(4.0f), x(0.0f), p(1.0f), k(0.0f) {}
+};
+
+// Feature 8: Software PWM
+struct MTX_PWMState {
+    uint8_t pin;
+    uint8_t dutyCycle;
+    uint32_t periodMicros;
+    uint32_t lastFlip;
+    bool pinState;
+};
+
+// Feature 9: Rotary Encoder
+struct MTX_Encoder {
+    uint8_t pinA;
+    uint8_t pinB;
+    int32_t position;
+    uint8_t lastStateA;
+};
+
 class MTXUtils {
   public:
     static MTXUtils& getInstance() {
       static MTXUtils instance;
       return instance;
     }
+
+    // Feature 6: RAM Diagnostics
+    static uint32_t getFreeMemory();
+
+    // Feature 7: Kalman Filter
+    static float kalmanFilter(float measurement, MTX_Kalman &kf);
+
+    // Feature 8: Software PWM
+    static void handlePWM(MTX_PWMState &pwm);
+
+    // Feature 9: Rotary Encoder
+    static void initEncoder(MTX_Encoder &enc, uint8_t pA, uint8_t pB);
+    static bool updateEncoder(MTX_Encoder &enc);
 
     template <uint8_t PIN>
     static inline void toggleFast() {

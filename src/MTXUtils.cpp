@@ -1,5 +1,22 @@
 #include "MTXUtils.h"
 
+/*
+ * =================================================================
+ * ================= MicroTaskX Utility Features ===================
+ * =================================================================
+ *
+ * - Analog Read Smoothing (Exponential Moving Average)
+ * - Button Debouncing (Press & Long Press)
+ * - PID Controller Logic
+ * - Hysteresis Function for thresholds
+ * - Battery Percentage Calculation
+ * - Time Formatting (ms to HH:MM:SS)
+ * - Data Conversion (Bytes to Hex String)
+ * - CRC8 Checksum Calculation
+ * - ASCII Progress Bar Generation
+ */
+
+
 int MTXUtils::smoothRead(uint8_t analogPin, int &smoothedReference, uint8_t alpha) {
   int newRead = analogRead(analogPin);
   if (alpha > 100) alpha = 100;

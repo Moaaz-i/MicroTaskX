@@ -1,6 +1,21 @@
 #ifndef MTX_KERNEL_H
 #define MTX_KERNEL_H
 
+/*
+ * =================================================================
+ * ================ MicroTaskX Kernel Features =====================
+ * =================================================================
+ *
+ * - Cooperative Multitasking with Priorities
+ * - Task Profiling (Max Execution Time)
+ * - Task Dependencies / Signals
+ * - Mutexes / Semaphores for resource sharing
+ * - Software Watchdog (WDT)
+ * - Deferred Interrupts (ISR Queuing)
+ * - Coroutines & Protothreads Macros
+ * - Smart Sleep for low power consumption
+ */
+
 #include "Arduino.h"
 
 #if defined(__AVR__)
@@ -31,10 +46,17 @@ struct MTX_Task {
     void* arg;
     uint32_t interval;
     uint32_t lastRun;
+    uint32_t maxExecutionTime;
     uint8_t priority : 2;
     uint8_t isActive : 1;
     uint8_t isOneShot : 1;
     uint8_t isMicros : 1;
+    uint8_t isWaitingSignal : 1;
+};
+
+struct MTX_Mutex {
+    bool locked;
+    MTX_Mutex() : locked(false) {}
 };
 
 template <uint8_t MAX_TASKS = 5>
@@ -46,14 +68,27 @@ class MicroTaskXKernel {
     MTX_Task _tasks[MAX_TASKS];
     bool _smartSleepEnabled;
 
+    uint32_t _wdtTimeout;
+    uint32_t _lastWdtFeed;
+    bool _wdtEnabled;
+    volatile mtx_task_t _isrPendingTasks[MAX_TASKS];
+    volatile uint8_t _isrCount;
+
     MicroTaskXKernel() {
       _idleCounter       = 0;
       _maxIdle           = 0;
       _cpuCheckMillis    = 0;
       _smartSleepEnabled = false;
+      _wdtEnabled        = false;
+      _wdtTimeout        = 2000;
+      _lastWdtFeed       = 0;
+      _isrCount          = 0;
       for (uint8_t i = 0; i < MAX_TASKS; i++) {
-        _tasks[i].taskFunction = nullptr;
-        _tasks[i].isActive     = false;
+        _tasks[i].taskFunction   = nullptr;
+        _tasks[i].isActive       = false;
+        _tasks[i].maxExecutionTime = 0;
+        _tasks[i].isWaitingSignal = false;
+        _isrPendingTasks[i]      = nullptr;
       }
     }
 
@@ -150,7 +185,97 @@ class MicroTaskXKernel {
       return false;
     }
 
+    bool waitForSignal(mtx_task_t func) {
+      for (uint8_t i = 0; i < MAX_TASKS; i++) {
+        if (_tasks[i].taskFunction == func) {
+          _tasks[i].isWaitingSignal = true;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool sendSignal(mtx_task_t func) {
+      for (uint8_t i = 0; i < MAX_TASKS; i++) {
+        if (_tasks[i].taskFunction == func && _tasks[i].isWaitingSignal) {
+          _tasks[i].isWaitingSignal = false;
+          _tasks[i].lastRun = _tasks[i].isMicros ? micros() : millis();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool lockMutex(MTX_Mutex& mutex) {
+      if (mutex.locked) return false;
+      mutex.locked = true;
+      return true;
+    }
+
+    void unlockMutex(MTX_Mutex& mutex) {
+      mutex.locked = false;
+    }
+
+    uint32_t getMaxExecutionTime(mtx_task_t func) {
+      for (uint8_t i = 0; i < MAX_TASKS; i++) {
+        if (_tasks[i].taskFunction == func) {
+          return _tasks[i].maxExecutionTime;
+        }
+      }
+      return 0;
+    }
+
+    void clearProfiling() {
+      for (uint8_t i = 0; i < MAX_TASKS; i++) {
+        _tasks[i].maxExecutionTime = 0;
+      }
+    }
+
+    void enableWDT(uint32_t timeoutMs = 2000) {
+      _wdtEnabled = true;
+      _wdtTimeout = timeoutMs;
+      _lastWdtFeed = millis();
+    }
+
+    void disableWDT() { _wdtEnabled = false; }
+
+    void feedWDT() { _lastWdtFeed = millis(); }
+
+    void systemReset() {
+      #if defined(__AVR__)
+        void (*resetFunc)(void) = 0;
+        resetFunc();
+      #elif defined(ARDUINO_ARCH_ESP32)
+        ESP.restart();
+      #else
+        while(1);
+      #endif
+    }
+
+    void checkWDT() {
+      if (_wdtEnabled && (millis() - _lastWdtFeed > _wdtTimeout)) {
+        MTX_PRINTLN(F("[MTX] WDT Timeout! Resetting..."));
+        systemReset();
+      }
+    }
+
+    void scheduleFromISR(mtx_task_t func) {
+      if (_isrCount < MAX_TASKS) {
+        _isrPendingTasks[_isrCount++] = func;
+      }
+    }
+
     void runTasks() {
+      checkWDT();
+
+      // Execute ISR pending tasks first safely
+      while (_isrCount > 0) {
+        mtx_task_t isrFunc = _isrPendingTasks[--_isrCount];
+        if (isrFunc) {
+          isrFunc(nullptr);
+        }
+      }
+
       uint32_t currentMillis   = millis();
       uint32_t currentMicros   = micros();
       int      targetIndex     = -1;
@@ -159,7 +284,7 @@ class MicroTaskXKernel {
       bool     hasMicrosTasks  = false;
 
       for (uint8_t i = 0; i < MAX_TASKS; i++) {
-        if (_tasks[i].taskFunction != nullptr && _tasks[i].isActive) {
+        if (_tasks[i].taskFunction != nullptr && _tasks[i].isActive && !_tasks[i].isWaitingSignal) {
           uint32_t now         = _tasks[i].isMicros ? currentMicros : currentMillis;
           uint32_t timeElapsed = now - _tasks[i].lastRun;
 
@@ -187,7 +312,13 @@ class MicroTaskXKernel {
       }
 
       if (targetIndex != -1) {
+        uint32_t startExec = micros();
         _tasks[targetIndex].taskFunction(_tasks[targetIndex].arg);
+        uint32_t execTime = micros() - startExec;
+
+        if (execTime > _tasks[targetIndex].maxExecutionTime) {
+          _tasks[targetIndex].maxExecutionTime = execTime;
+        }
 
         if (_tasks[targetIndex].isOneShot) {
           _tasks[targetIndex].taskFunction = nullptr;
@@ -241,14 +372,16 @@ class MicroTaskXKernel {
 
       for (uint8_t i = 0; i < MAX_TASKS; i++) {
         if (_tasks[i].taskFunction == nullptr) {
-          _tasks[i].taskFunction = func;
-          _tasks[i].interval     = interval;
-          _tasks[i].lastRun      = isMicros ? micros() : millis();
-          _tasks[i].priority     = static_cast<uint8_t>(priority);
-          _tasks[i].isOneShot    = oneShot;
-          _tasks[i].arg          = arg;
-          _tasks[i].isMicros     = isMicros;
-          _tasks[i].isActive     = true;
+          _tasks[i].taskFunction   = func;
+          _tasks[i].interval       = interval;
+          _tasks[i].lastRun        = isMicros ? micros() : millis();
+          _tasks[i].maxExecutionTime = 0;
+          _tasks[i].priority       = static_cast<uint8_t>(priority);
+          _tasks[i].isOneShot      = oneShot;
+          _tasks[i].arg            = arg;
+          _tasks[i].isMicros       = isMicros;
+          _tasks[i].isWaitingSignal = false;
+          _tasks[i].isActive       = true;
           return true;
         }
       }
@@ -278,6 +411,23 @@ void loop() { \
 
 #define MTX_EVERY_HZ(hz) MTX_EVERY_MS((hz) == 0 ? 0 : 1000 / (hz))
 #define MTX_EVERY(ms)    MTX_EVERY_MS(ms)
+
+#define MTX_COROUTINE_BEGIN() static int _mtx_pt_line = 0; switch(_mtx_pt_line) { case 0:
+#define MTX_YIELD() _mtx_pt_line = __LINE__; return; case __LINE__:
+#define MTX_DELAY_YIELD(ms) \
+  do { \
+    static uint32_t _mtx_pt_delay = 0; \
+    _mtx_pt_delay = millis(); \
+    _mtx_pt_line = __LINE__; return; case __LINE__: \
+    if (millis() - _mtx_pt_delay < (ms)) return; \
+  } while(0)
+#define MTX_WAIT_UNTIL(condition) \
+  do { \
+    _mtx_pt_line = __LINE__; return; case __LINE__: \
+    if (!(condition)) return; \
+  } while(0)
+#define MTX_COROUTINE_END() _mtx_pt_line = 0; }
+#define MTX_LOCK_YIELD(mutex) MTX_WAIT_UNTIL(mtx.lockMutex(mutex))
 
 #define MTX_END \
 }
