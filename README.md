@@ -4,6 +4,16 @@ An ultra-lightweight, high-performance micro-RTOS and multitasking framework des
 
 ---
 
+[![Latest commit](https://img.shields.io/github/last-commit/Moaaz-i/MicroTaskX.svg?style=for-the-badge)](https://github.com/Moaaz-i/MicroTaskX/commits/main)
+[![GitHub repo size](https://img.shields.io/github/repo-size/Moaaz-i/MicroTaskX?style=for-the-badge)](https://github.com/Moaaz-i/MicroTaskX/blob/main/src/MicroTaskX.h)
+![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg?style=for-the-badge)
+![Arduino IDE](https://img.shields.io/badge/Arduino-IDE-blueviolet.svg?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-AVR%20%7C%20ESP32-lightgrey.svg?style=for-the-badge)
+![C++](https://img.shields.io/badge/C%2B%2B-11%2F17-orange.svg?style=for-the-badge)
+
+---
+
 ## ✨ Features
 
 - **Zero-Overlap Modular Architecture:** Separates the core scheduling kernel (`MTXKernel`) from hardware utilities (`MTXUtils`) to minimize memory consumption.
@@ -21,7 +31,7 @@ An ultra-lightweight, high-performance micro-RTOS and multitasking framework des
 
 ## 📦 Project Structure
 
-````text
+```text
 MicroTaskX/
 ├── src/
 │   ├── MicroTaskX.h         // Main inclusion header (Creates default 'mtx' instance)
@@ -34,7 +44,7 @@ MicroTaskX/
 
 ## 🛠 Usage Example
 Here is a complete example demonstrating the new modular syntax, dynamic controls, and isolated analog smoothing:
-````
+```
 
 ```cpp
 #include <MicroTaskX.h>
@@ -116,7 +126,7 @@ MTX_RUN()
     mtx.pauseTask(readSensorTask);
   }
 MTX_END
-````
+```
 
 ## ⚠️ Important Migration Notes from v2.x
 

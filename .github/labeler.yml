@@ -1,0 +1,8 @@
+library:
+  - "src/**"
+
+examples:
+  - "examples/**"
+
+docs:
+  - "README.md"
