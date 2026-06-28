@@ -22,7 +22,7 @@ jobs:
             fqbn: "arduino:avr:uno"
 
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
 
     steps:
@@ -81,18 +81,30 @@ jobs:
               body: `### ⚠️ CI Automated Review: Changes Requested\n\nHello @${context.actor}, the compilation failed. Please fix the following errors:\n\n${errors}`
             });
 
-      - name: Approve on Success
+      - name: Approve and Enable Auto-Merge on Success
         if: success() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.pulls.createReview({
+            await github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.issue.number,
               event: 'APPROVE',
-              body: `### ✅ CI Automated Review: Approved!\n\nGreat job @${context.actor}! The code compiles perfectly on **${{ matrix.fqbn }}**.`
+              body: `### ✅ CI Automated Review: Approved!\n\nGreat job @${context.actor}! The code compiles perfectly on **${{ matrix.fqbn }}**. Activating safe auto-merge...`
             });
+
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                merge_method: 'squash'
+              });
+              console.log("Auto-merge triggered successfully.");
+            } catch (error) {
+              console.log("Auto-merge skipped or handled by system constraints:", error.message);
+            }
 
   close-abandoned-prs:
     if: github.event_name == 'schedule'
