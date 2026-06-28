@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "../../src/MicroTaskX.h"
+#include "MicroTaskX.h"
 
 const uint8_t LED = 13;
 

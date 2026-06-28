@@ -1,4 +1,4 @@
-#include "../../src/MicroTaskX.h"
+#include "MicroTaskX.h"
 
 const uint8_t LED = 9;
 const uint8_t SENSOR = A0;
