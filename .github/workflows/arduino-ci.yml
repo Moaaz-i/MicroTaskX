@@ -1,0 +1,29 @@
+name: Arduino Library CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install board platforms
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+
+      - name: Compile examples
+        run: |
+          for example in $(find ./examples -name "*.ino"); do
+            echo "Compiling $example"
+            arduino-cli compile --fqbn arduino:avr:uno "$example"
+          done
