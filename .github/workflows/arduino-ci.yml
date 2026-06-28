@@ -11,7 +11,7 @@ jobs:
     name: Build on ${{ matrix.fqbn }}
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false # تابع فحص باقي البوردات حتى لو فشلت واحدة لتجميع كل الأخطاء للمستخدم
+      fail-fast: false
       matrix:
         include:
           - core: "arduino:avr"
@@ -28,7 +28,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. تعليق ترحيبي عند فتح الـ PR
       - name: Send greeting comment
         if: github.event_name == 'pull_request' && matrix.fqbn == 'arduino:avr:uno'
         uses: actions/github-script@v7
@@ -41,7 +40,6 @@ jobs:
               body: "### 👋 Hello @${{ github.actor }}!\nThank you for contributing! Your Arduino CI workflow has started testing the library against multiple boards. We will let you know the results shortly. 🚀"
             })
 
-      # 2. إعداد أداة Arduino
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
 
@@ -53,7 +51,6 @@ jobs:
             ~/.arduino15/staging
           key: ${{ runner.os }}-arduino-${{ matrix.core }}
 
-    Cavity:
       - name: Install board platforms
         run: |
           arduino-cli core update-index
@@ -65,18 +62,20 @@ jobs:
           mkdir -p error_logs
           FAILED=0
 
+          SAFE_BOARD_NAME=$(echo "${{ matrix.fqbn }}" | tr ':' '_')
+
           find ./examples -name "*.ino" -print0 | while IFS= read -r -d '' example; do
             echo "Compiling: $example for ${{ matrix.fqbn }}"
 
             if ! arduino-cli compile --fqbn ${{ matrix.fqbn }} "$example" --library . > compile_output.txt 2>&1; then
               FAILED=1
               EXAMPLE_NAME=$(basename "$example")
-              echo "### ❌ Compilation Failed for $EXAMPLE_NAME on ${{ matrix.fqbn }}" >> error_logs/${{ matrix.fqbn }}_errors.md
-              echo "#### Compiler Output:" >> error_logs/${{ matrix.fqbn }}_errors.md
-              echo "\`\`\`cpp" >> error_logs/${{ matrix.fqbn }}_errors.md
-              cat compile_output.txt >> error_logs/${{ matrix.fqbn }}_errors.md
-              echo "\`\`\`" >> error_logs/${{ matrix.fqbn }}_errors.md
-              echo "---" >> error_logs/${{ matrix.fqbn }}_errors.md
+              echo "### ❌ Compilation Failed for $EXAMPLE_NAME on ${{ matrix.fqbn }}" >> error_logs/${SAFE_BOARD_NAME}_errors.md
+              echo "#### Compiler Output:" >> error_logs/${SAFE_BOARD_NAME}_errors.md
+              echo "\`\`\`cpp" >> error_logs/${SAFE_BOARD_NAME}_errors.md
+              cat compile_output.txt >> error_logs/${SAFE_BOARD_NAME}_errors.md
+              echo "\`\`\`" >> error_logs/${SAFE_BOARD_NAME}_errors.md
+              echo "---" >> error_logs/${SAFE_BOARD_NAME}_errors.md
             fi
           done
 
@@ -90,7 +89,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = 'error_logs/${{ matrix.fqbn }}_errors.md';
+            const boardName = "${{ matrix.fqbn }}".replace(/:/g, '_');
+            const path = `error_logs/${boardName}_errors.md`;
 
             if (fs.existsSync(path)) {
               const errors = fs.readFileSync(path, 'utf8');
