@@ -1,4 +1,4 @@
-#include <MicroTaskX.h>
+#include "../../src/MicroTaskX.h"
 
 MTX_START()
   Serial.begin(9600);

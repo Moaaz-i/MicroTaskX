@@ -20,8 +20,7 @@
  * Author: Moaaz Yahia Shrif
  * License: MIT
  */
-
-#include <MicroTaskX.h>
+#include "../../src/MicroTaskX.h"
 
 // Pin definitions
 const uint8_t LED_PIN    = 13;
