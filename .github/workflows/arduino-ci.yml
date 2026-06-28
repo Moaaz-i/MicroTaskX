@@ -18,18 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Send greeting comment
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "Hello Moaaz! 👋\nYour Arduino CI workflow is now running."
-            })
-
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v1
 
@@ -38,9 +26,54 @@ jobs:
           arduino-cli core update-index
           arduino-cli core install arduino:avr
 
-      - name: Compile examples
+      - name: Compile examples and collect results
+        id: build_examples
         run: |
+          RESULT=""
           for example in $(find ./examples -name "*.ino"); do
             echo "Compiling $example"
-            arduino-cli compile --fqbn arduino:avr:uno "$example" --library .
+            if arduino-cli compile --fqbn arduino:avr:uno "$example" --library .; then
+              RESULT="$RESULT\n✅ Success: $example"
+            else
+              RESULT="$RESULT\n❌ Failed: $example"
+            fi
           done
+          echo "result<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$RESULT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send detailed comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = core.getOutput("result");
+
+            const body = ```
+Hello Moaaz! 👋
+Your Arduino CI workflow has finished running.
+
+### 🔧 Build Summary
+${result}
+
+### 📌 What happened?
+- The workflow installed Arduino CLI
+- Installed the AVR core
+- Compiled all examples inside the **examples/** folder
+- Collected the results for each example
+
+### 🚀 What should you do next?
+- If all examples succeeded: great! Your library is stable.
+- If some examples failed: check the error logs in the CI output.
+- Fix the failing example and push again to re-run the workflow.
+
+
+Have a great day, Moaaz! 😊
+```;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
