@@ -1,13 +1,17 @@
-name: Arduino Library CI
+name: Arduino Library CI & Automations
 
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   build:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     name: Build on ${{ matrix.fqbn }}
     runs-on: ubuntu-latest
     strategy:
@@ -16,29 +20,14 @@ jobs:
         include:
           - core: "arduino:avr"
             fqbn: "arduino:avr:uno"
-          - core: "arduino:avr"
-            fqbn: "arduino:avr:mega"
 
     permissions:
       contents: read
       pull-requests: write
-      issues: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Send greeting comment
-        if: github.event_name == 'pull_request' && matrix.fqbn == 'arduino:avr:uno'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "### 👋 Hello @${{ github.actor }}!\nThank you for contributing! Your Arduino CI workflow has started testing the library against multiple boards. We will let you know the results shortly. 🚀"
-            })
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
@@ -57,33 +46,23 @@ jobs:
           arduino-cli core install ${{ matrix.core }}
 
       - name: Compile examples
-        id: compile_step
         run: |
           mkdir -p error_logs
           FAILED=0
-
           SAFE_BOARD_NAME=$(echo "${{ matrix.fqbn }}" | tr ':' '_')
 
           find ./examples -name "*.ino" -print0 | while IFS= read -r -d '' example; do
-            echo "Compiling: $example for ${{ matrix.fqbn }}"
-
             if ! arduino-cli compile --fqbn ${{ matrix.fqbn }} "$example" --library . > compile_output.txt 2>&1; then
               FAILED=1
               EXAMPLE_NAME=$(basename "$example")
               echo "### ❌ Compilation Failed for $EXAMPLE_NAME on ${{ matrix.fqbn }}" >> error_logs/${SAFE_BOARD_NAME}_errors.md
-              echo "#### Compiler Output:" >> error_logs/${SAFE_BOARD_NAME}_errors.md
-              echo "\`\`\`cpp" >> error_logs/${SAFE_BOARD_NAME}_errors.md
               cat compile_output.txt >> error_logs/${SAFE_BOARD_NAME}_errors.md
-              echo "\`\`\`" >> error_logs/${SAFE_BOARD_NAME}_errors.md
-              echo "---" >> error_logs/${SAFE_BOARD_NAME}_errors.md
             fi
           done
 
-          if [ $FAILED -ne 0 ]; then
-            exit 1
-          fi
+          if [ $FAILED -ne 0 ]; then exit 1; fi
 
-      - name: Post Error Comment
+      - name: Request Changes on Failure
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
@@ -91,45 +70,67 @@ jobs:
             const fs = require('fs');
             const boardName = "${{ matrix.fqbn }}".replace(/:/g, '_');
             const path = `error_logs/${boardName}_errors.md`;
+            let errors = "Unknown compilation error.";
+            if (fs.existsSync(path)) { errors = fs.readFileSync(path, 'utf8'); }
 
-            if (fs.existsSync(path)) {
-              const errors = fs.readFileSync(path, 'utf8');
+            github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body: `### ⚠️ CI Automated Review: Changes Requested\n\nHello @${context.actor}, the compilation failed. Please fix the following errors:\n\n${errors}`
+            });
 
-              const commentBody = `### ⚠️ CI Build Failure Report (${{ matrix.fqbn }})
-
-              Hello @${{ github.actor }}, it looks like there are some compilation issues with your latest changes on **${{ matrix.fqbn }}**.
-
-              <details>
-              <summary>🔍 Click here to view the detailed compilation errors</summary>
-
-              ${errors}
-
-              </details>
-
-              #### 💡 How to fix this?
-              1. Read the error log above to find the file and line number causing the issue.
-              2. Test your changes locally using Arduino CLI or the Arduino IDE before pushing.
-              3. If you need help, feel free to leave a comment here and our maintainers will assist you!
-
-              ---
-              *Generated automatically by Arduino Library CI*`;
-
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: commentBody
-              });
-            }
-
-      - name: Post Success Comment
-        if: success() && github.event_name == 'pull_request' && matrix.fqbn == 'arduino:avr:uno'
+      - name: Approve on Success
+        if: success() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "### ✅ CI Build Passed!\nGreat job @${{ github.actor }}! Your code compiles perfectly fine on all tested Arduino boards. A maintainer will review your Pull Request soon. Thank you for your contribution! 🎉"
-            })
+              pull_number: context.issue.number,
+              event: 'APPROVE',
+              body: `### ✅ CI Automated Review: Approved!\n\nGreat job @${context.actor}! The code compiles perfectly on **${{ matrix.fqbn }}**.`
+            });
+
+  close-abandoned-prs:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Close Stale Pull Requests
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const daysToStale = 7;
+            const now = new Date();
+
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+
+            for (const pr of prs.data) {
+              const updatedAt = new Date(pr.updated_at);
+              const diffTime = Math.abs(now - updatedAt);
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+              if (diffDays >= daysToStale) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `⚠️ This Pull Request has been automatically closed because there has been no activity or review from the author or maintainers for the last ${daysToStale} days. Feel free to reopen it once you are ready to update the code! 🔒`
+                });
+
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  state: 'closed'
+                });
+              }
+            }
