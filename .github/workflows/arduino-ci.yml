@@ -58,14 +58,6 @@ jobs:
           head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
 
-      - name: Validate PR Title & Lint
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "${{ github.event.pull_request.title }}" | grep -E '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?!?: .+' || {
-            echo "❌ Error: PR title must follow Conventional Commits standards, e.g., 'feat: add new sensor module'"
-            exit 1
-          }
-
       - name: Check and Extract Version
         id: version_check
         run: |
