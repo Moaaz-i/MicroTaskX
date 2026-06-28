@@ -8,7 +8,16 @@ on:
 
 jobs:
   build:
+    name: Build on ${{ matrix.fqbn }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # تابع فحص باقي البوردات حتى لو فشلت واحدة لتجميع كل الأخطاء للمستخدم
+      matrix:
+        include:
+          - core: "arduino:avr"
+            fqbn: "arduino:avr:uno"
+          - core: "arduino:avr"
+            fqbn: "arduino:avr:mega"
 
     permissions:
       contents: read
@@ -16,64 +25,111 @@ jobs:
       issues: write
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Install Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
-
-      - name: Install board platforms
-        run: |
-          arduino-cli core update-index
-          arduino-cli core install arduino:avr
-
-      - name: Compile examples and collect results
-        id: build_examples
-        run: |
-          RESULT=""
-          for example in $(find ./examples -name "*.ino"); do
-            echo "Compiling $example"
-            if arduino-cli compile --fqbn arduino:avr:uno "$example" --library .; then
-              RESULT="$RESULT\n✅ Success: $example"
-            else
-              RESULT="$RESULT\n❌ Failed: $example"
-            fi
-          done
-          echo "result<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$RESULT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Send detailed comment
-        if: github.event_name == 'pull_request'
+      # 1. تعليق ترحيبي عند فتح الـ PR
+      - name: Send greeting comment
+        if: github.event_name == 'pull_request' && matrix.fqbn == 'arduino:avr:uno'
         uses: actions/github-script@v7
         with:
           script: |
-            const result = core.getOutput("result");
-
-            const body = ```
-Hello Moaaz! 👋
-Your Arduino CI workflow has finished running.
-
-### 🔧 Build Summary
-${result}
-
-### 📌 What happened?
-- The workflow installed Arduino CLI
-- Installed the AVR core
-- Compiled all examples inside the **examples/** folder
-- Collected the results for each example
-
-### 🚀 What should you do next?
-- If all examples succeeded: great! Your library is stable.
-- If some examples failed: check the error logs in the CI output.
-- Fix the failing example and push again to re-run the workflow.
-
-
-Have a great day, Moaaz! 😊
-```;
-
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
-            });
+              body: "### 👋 Hello @${{ github.actor }}!\nThank you for contributing! Your Arduino CI workflow has started testing the library against multiple boards. We will let you know the results shortly. 🚀"
+            })
+
+      # 2. إعداد أداة Arduino
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Cache Arduino Core
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/staging
+          key: ${{ runner.os }}-arduino-${{ matrix.core }}
+
+    Cavity:
+      - name: Install board platforms
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install ${{ matrix.core }}
+
+      - name: Compile examples
+        id: compile_step
+        run: |
+          mkdir -p error_logs
+          FAILED=0
+
+          find ./examples -name "*.ino" -print0 | while IFS= read -r -d '' example; do
+            echo "Compiling: $example for ${{ matrix.fqbn }}"
+
+            if ! arduino-cli compile --fqbn ${{ matrix.fqbn }} "$example" --library . > compile_output.txt 2>&1; then
+              FAILED=1
+              EXAMPLE_NAME=$(basename "$example")
+              echo "### ❌ Compilation Failed for $EXAMPLE_NAME on ${{ matrix.fqbn }}" >> error_logs/${{ matrix.fqbn }}_errors.md
+              echo "#### Compiler Output:" >> error_logs/${{ matrix.fqbn }}_errors.md
+              echo "\`\`\`cpp" >> error_logs/${{ matrix.fqbn }}_errors.md
+              cat compile_output.txt >> error_logs/${{ matrix.fqbn }}_errors.md
+              echo "\`\`\`" >> error_logs/${{ matrix.fqbn }}_errors.md
+              echo "---" >> error_logs/${{ matrix.fqbn }}_errors.md
+            fi
+          done
+
+          if [ $FAILED -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Post Error Comment
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'error_logs/${{ matrix.fqbn }}_errors.md';
+
+            if (fs.existsSync(path)) {
+              const errors = fs.readFileSync(path, 'utf8');
+
+              const commentBody = `### ⚠️ CI Build Failure Report (${{ matrix.fqbn }})
+
+              Hello @${{ github.actor }}, it looks like there are some compilation issues with your latest changes on **${{ matrix.fqbn }}**.
+
+              <details>
+              <summary>🔍 Click here to view the detailed compilation errors</summary>
+
+              ${errors}
+
+              </details>
+
+              #### 💡 How to fix this?
+              1. Read the error log above to find the file and line number causing the issue.
+              2. Test your changes locally using Arduino CLI or the Arduino IDE before pushing.
+              3. If you need help, feel free to leave a comment here and our maintainers will assist you!
+
+              ---
+              *Generated automatically by Arduino Library CI*`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentBody
+              });
+            }
+
+      - name: Post Success Comment
+        if: success() && github.event_name == 'pull_request' && matrix.fqbn == 'arduino:avr:uno'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "### ✅ CI Build Passed!\nGreat job @${{ github.actor }}! Your code compiles perfectly fine on all tested Arduino boards. A maintainer will review your Pull Request soon. Thank you for your contribution! 🎉"
+            })
