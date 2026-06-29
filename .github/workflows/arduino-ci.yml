@@ -32,17 +32,18 @@ jobs:
       pull-requests: write
       issues: write
       security-events: write
+      statuses: write
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Welcome New Contributor
         if: github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             github.rest.issues.createComment({
@@ -69,10 +70,17 @@ jobs:
           fi
           echo "version=${PROP_VERSION:-$JSON_VERSION}" >> $GITHUB_OUTPUT
 
+      - name: Verify Folder Structure
+        run: |
+          if [ ! -d "src" ] || [ ! -d "examples" ]; then
+            echo "Standard Arduino library structure (src/ and examples/) is required."
+            exit 1
+          fi
+
       - name: Run cppcheck (Static Analysis)
         run: |
-          sudo apt-get install -y cppcheck
-          cppcheck --enable=all --suppress=missingInclude --suppress=unusedFunction src/ --inline-suppr
+          sudo apt-get update && sudo apt-get install -y cppcheck
+          cppcheck --enable=all --suppress=missingInclude --suppress=unusedFunction src/ --inline-suppr --error-exitcode=1
 
       - name: Lint JSON & YAML configuration files
         run: |
@@ -90,14 +98,11 @@ jobs:
 
       - name: Commit and Push Formatted Code
         if: github.event_name == 'pull_request'
-        run: |
-          git config --global user.name "autonomous-dev-bot[bot]"
-          git config --global user.email "autonomous-bot@users.noreply.github.com"
-          if ! git diff --exit-code; then
-            git add .
-            git commit -m "style: automated code formatting fixes by bot"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: automated code formatting fixes by bot"
+          commit_user_name: "autonomous-dev-bot[bot]"
+          commit_user_email: "autonomous-bot@users.noreply.github.com"
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
@@ -130,7 +135,7 @@ jobs:
               echo "### ❌ Compilation Failed for $(basename "$example")" >> error_logs/errors.md
               cat compile_output.txt >> error_logs/errors.md
             else
-              echo "### 📊 Memory Profiling for $(basename "$example"):" >> error_logs/memory_report.md
+              echo "### 📊 Memory Profiling for $(basename "$example") [${{ matrix.core }}]:" >> error_logs/memory_report.md
               grep -E "Sketch uses|Global variables" compile_output.txt >> error_logs/memory_report.md || true
             fi
           done
@@ -138,7 +143,7 @@ jobs:
 
       - name: Request Changes on Failure
         if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -151,7 +156,7 @@ jobs:
 
       - name: Post Memory Usage Report
         if: success() && github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -163,14 +168,65 @@ jobs:
               });
             }
 
-      - name: Approve and Enable Auto-Merge on Success
-        if: success() && github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+      - name: Auto-Label Pull Request based on changes
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number
+            });
+            const labels = new Set();
+            files.forEach(f => {
+              if (f.filename.startsWith('examples/')) labels.add('examples');
+              if (f.filename.startsWith('src/')) labels.add('source-code');
+              if (f.filename.endsWith('.md')) labels.add('documentation');
+            });
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+                labels: Array.from(labels)
+              });
+            }
+
+      - name: Check Todo Comments
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number
+            });
+            let todoCount = 0;
+            for (const file of files) {
+              if (file.patch && file.patch.includes('+') && file.patch.toLowerCase().includes('todo')) {
+                todoCount++;
+              }
+            }
+            if (todoCount > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+                body: `📝 **Note:** Found ${todoCount} new 'TODO' comment(s) added in this PR.`
+              });
+            }
+
+      - name: Enforce Size Constraints
+        run: |
+          MAX_SIZE_KB=500
+          TOTAL_SIZE=$(du -sk src/ | cut -f1)
+          if [ "$TOTAL_SIZE" -gt "$MAX_SIZE_KB" ]; then
+            echo "Library size ($TOTAL_SIZE KB) exceeds the maximum allowed budget of $MAX_SIZE_KB KB."
+            exit 1
+          fi
+
+      - name: Auto-Approve Dependabot
+        if: success() && github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+        uses: actions/github-script@v7
         with:
           script: |
             await github.rest.pulls.createReview({
               owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number,
-              event: 'APPROVE', body: `✅ Autonomous Bot approved the pull request. All verification checks have passed successfully!`
+              event: 'APPROVE', body: `✅ Automated approval for Dependabot update.`
             });
             await github.rest.pulls.merge({
               owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number, merge_method: 'squash'
@@ -178,10 +234,13 @@ jobs:
 
       - name: Create Release and Auto Changelog
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
+        env:
+          BOT_VERSION: ${{ steps.version_check.outputs.version }}
         with:
           script: |
-            const version = "${{ steps.version_check.outputs.version }}";
+            const version = process.env.BOT_VERSION;
+            if (!version) return;
             const tagName = `v${version}`;
             try {
               await github.rest.repos.createRelease({
@@ -195,9 +254,12 @@ jobs:
   bot-commands:
     if: github.event_name == 'issue_comment' && contains(github.event.comment.body, '/bot')
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - name: Execute Bot Chat Command
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const comment = context.payload.comment.body;
@@ -211,14 +273,23 @@ jobs:
   maintenance:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Prune Stale Branches
         uses: jigsaw-labs/delete-merged-branches-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Close Stale Pull Requests
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const daysToStale = 7;
@@ -237,7 +308,7 @@ jobs:
             }
 
       - name: Repository Health Check
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -246,4 +317,35 @@ jobs:
             essentialFiles.forEach(file => { if (!fs.existsSync(file)) missingFiles.push(file); });
             if (missingFiles.length > 0) {
               console.log(`Health Check Alert: Missing files detected: ${missingFiles.join(', ')}`);
+            }
+
+      - name: Validate Keyword Tags
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('library.properties')) {
+              const content = fs.readFileSync('library.properties', 'utf8');
+              if (!content.toLowerCase().includes('sentence=') || !content.toLowerCase().includes('paragraph=')) {
+                console.log("Health Check Alert: Missing description sentences or paragraphs in library.properties");
+              }
+            }
+
+      - name: Lock Inactive Resolved Issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'closed'
+            });
+            const now = new Date();
+            for (const issue of issues.data) {
+              if (issue.pull_request) continue;
+              const closedAt = new Date(issue.closed_at);
+              if (Math.ceil(Math.abs(now - closedAt) / (1000 * 60 * 60 * 24)) >= 30 && !issue.locked) {
+                await github.rest.issues.lock({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                  lock_reason: 'resolved'
+                });
+              }
             }
