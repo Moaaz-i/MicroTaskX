@@ -1334,7 +1334,7 @@ jobs:
             console.log(report);
 
       - name: Close Stale Pull Requests
-        uses: actions/stale@v9
+        uses: actions/stale@v10
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-pr-message: "⚠️ This PR has been automatically marked as stale due to inactivity. Please update or it will be closed soon."
@@ -1345,7 +1345,7 @@ jobs:
           exempt-pr-labels: "wip,security"
 
       - name: Close Stale Issues
-        uses: actions/stale@v9
+        uses: actions/stale@v10
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: "⚠️ This issue has been marked as stale due to inactivity. Please comment or it will be closed."
