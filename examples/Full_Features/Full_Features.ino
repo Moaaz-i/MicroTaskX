@@ -35,8 +35,7 @@ MTXButton btnState;
 // ============================================================================
 // TASK 1: Read and Filter Analog Sensor
 // ============================================================================
-void readSensorTask()
-{
+void readSensorTask() {
   // Pass the history variable as a reference to keep this reading isolated
   int filteredValue = MTXUtils::smoothReadFast(SENSOR_PIN, sensorHistory);
   int percentage = MTXUtils::toPercentage(filteredValue, 0, 1023);
@@ -51,11 +50,9 @@ void readSensorTask()
 // ============================================================================
 // TASK 2: Monitor Real-Time CPU Usage
 // ============================================================================
-void monitorCPUTask()
-{
+void monitorCPUTask() {
   int cpuLoad = mtx.getCPUUsage();
-  if (cpuLoad != -1)
-  {
+  if (cpuLoad != -1) {
     Serial.print(F("[Task 2] Real-time CPU Usage: "));
     Serial.print(cpuLoad);
     Serial.println(F("%"));
@@ -65,16 +62,14 @@ void monitorCPUTask()
 // ============================================================================
 // TASK 3: One-Shot Alert (Executes Only Once)
 // ============================================================================
-void alertTask()
-{
+void alertTask() {
   Serial.println(F("[Task 3] ⚠️ Alert! This one-shot task runs ONLY ONCE after 5 seconds."));
 }
 
 // ============================================================================
 // TASK 4: Display System Status
 // ============================================================================
-void statusTask()
-{
+void statusTask() {
   Serial.println(F("╔════════════════════════════════════════════════════════╗"));
   Serial.println(F("║           MicroTaskX Status Report                    ║"));
   Serial.println(F("╚════════════════════════════════════════════════════════╝"));
@@ -83,31 +78,29 @@ void statusTask()
 // ============================================================================
 // TASK 5: Dynamic Control Task (Demonstrates Runtime Modifications)
 // ============================================================================
-void controlTask()
-{
+void controlTask() {
   static uint8_t stage = 0;
 
-  switch (stage)
-  {
-  case 0:
-    Serial.println(F("\n[Control] Stage 1: Normal operation"));
-    stage++;
-    break;
-  case 1:
-    Serial.println(F("[Control] Stage 2: Increasing sensor reading frequency..."));
-    mtx.setInterval(readSensorTask, 200); // Change interval at runtime
-    stage++;
-    break;
-  case 2:
-    Serial.println(F("[Control] Stage 3: Pausing sensor task..."));
-    mtx.pauseTask(readSensorTask);
-    stage++;
-    break;
-  case 3:
-    Serial.println(F("[Control] Stage 4: Resuming sensor task..."));
-    mtx.resumeTask(readSensorTask);
-    stage = 0; // Reset cycle
-    break;
+  switch (stage) {
+    case 0:
+      Serial.println(F("\n[Control] Stage 1: Normal operation"));
+      stage++;
+      break;
+    case 1:
+      Serial.println(F("[Control] Stage 2: Increasing sensor reading frequency..."));
+      mtx.setInterval(readSensorTask, 200);  // Change interval at runtime
+      stage++;
+      break;
+    case 2:
+      Serial.println(F("[Control] Stage 3: Pausing sensor task..."));
+      mtx.pauseTask(readSensorTask);
+      stage++;
+      break;
+    case 3:
+      Serial.println(F("[Control] Stage 4: Resuming sensor task..."));
+      mtx.resumeTask(readSensorTask);
+      stage = 0;  // Reset cycle
+      break;
   }
 }
 
@@ -176,8 +169,7 @@ MTX_RUN()
 // Independent Timer 1: LED Toggle every 1000ms (1 Hz)
 // Uses zero-overhead token-pasting macro expansion
 // ────────────────────────────────────────────────────────────────────────
-MTX_EVERY_MS(1000)
-{
+MTX_EVERY_MS(1000) {
   MTXUtils::toggleFast<LED_PIN>();
   Serial.println(F("💡 [Timer 1] LED toggled via MTX_EVERY_MS (1000ms)"));
 }
@@ -185,13 +177,14 @@ MTX_EVERY_MS(1000)
 // ────────────────────────────────────────────────────────────────────────
 // Independent Timer 2: Heartbeat every 1 second (1 Hz)
 // ────────────────────────────────────────────────────────────────────────
-MTX_EVERY_HZ(1) { Serial.println(F("❤️  [Timer 2] Heartbeat at 1 Hz...")); }
+MTX_EVERY_HZ(1) {
+  Serial.println(F("❤️  [Timer 2] Heartbeat at 1 Hz..."));
+}
 
 // ────────────────────────────────────────────────────────────────────────
 // Independent Timer 3: Frequent event every 100ms
 // ────────────────────────────────────────────────────────────────────────
-MTX_EVERY_MS(100)
-{
+MTX_EVERY_MS(100) {
   // Fast, non-blocking operations here
   // This runs 10 times per second
 }
@@ -199,8 +192,7 @@ MTX_EVERY_MS(100)
 // ────────────────────────────────────────────────────────────────────────
 // Hardware Button Monitoring (Non-Blocking with Debouncing)
 // ────────────────────────────────────────────────────────────────────────
-if (MTXUtils::isButtonPressed(BUTTON_PIN, btnState, 50))
-{
+if (MTXUtils::isButtonPressed(BUTTON_PIN, btnState, 50)) {
   Serial.println(F("🔘 [Event] Button pressed! (Debounced)"));
 }
 
