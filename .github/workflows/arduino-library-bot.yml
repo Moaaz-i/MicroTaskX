@@ -13,8 +13,47 @@ on:
     types: [created]
 
 jobs:
+  lint-and-format:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Welcome New Contributor
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🤖 Welcome @${context.actor}! I am your autonomous assistant bot. I am now scanning your code, formatting it, and running test compilations. Please hold on.`
+            });
+
+      - name: Run Code Formatter (Clang Format)
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang-format
+          find . -iname '*.h' -o -iname '*.cpp' -o -iname '*.ino' | xargs -r clang-format -i
+
+      - name: Commit and Push Formatted Code
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: automated code formatting fixes by bot"
+          commit_user_name: "autonomous-dev-bot[bot]"
+          commit_user_email: "autonomous-bot@users.noreply.github.com"
+
   core-bot:
     if: github.event_name != 'issue_comment'
+    needs: [lint-and-format]
+    if: always() && (needs.lint-and-format.result == 'success' || needs.lint-and-format.result == 'skipped')
     name: Autonomous Bot Operations
     runs-on: ubuntu-latest
     strategy:
@@ -41,31 +80,23 @@ jobs:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
-      - name: Welcome New Contributor
-        if: github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `🤖 Welcome @${context.actor}! I am your autonomous assistant bot. I am now scanning your code, formatting it, and running test compilations. Please hold on.`
-            });
-
       - name: Scan for Secret Leaks
         uses: trufflesecurity/trufflehog@main
         with:
-          base: ${{ github.event.pull_request.base.sha }}
-          head: ${{ github.event.pull_request.head.sha }}
+          base: ${{ github.event.pull_request.base.sha || '' }}
+          head: ${{ github.event.pull_request.head.sha || '' }}
           extra_args: --only-verified
 
       - name: Check and Extract Version
         id: version_check
         run: |
           PROP_VERSION=$(grep -i '^version=' library.properties | cut -d= -f2 | xargs 2>/dev/null || echo "")
-          JSON_VERSION=$(jq -r '.version // empty' library.json 2>/dev/null || echo "")
+          JSON_VERSION=""
+          if [ -f "library.json" ]; then
+            JSON_VERSION=$(jq -r '.version // empty' library.json 2>/dev/null || echo "")
+          fi
           if [ ! -z "$PROP_VERSION" ] && [ ! -z "$JSON_VERSION" ] && [ "$PROP_VERSION" != "$JSON_VERSION" ]; then
+            echo "Error: Version mismatch between library.properties and library.json"
             exit 1
           fi
           echo "version=${PROP_VERSION:-$JSON_VERSION}" >> $GITHUB_OUTPUT
@@ -90,19 +121,6 @@ jobs:
         uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
           use-quiet-mode: "yes"
-
-      - name: Run Code Formatter (Clang Format)
-        run: |
-          sudo apt-get update && sudo apt-get install -y clang-format
-          find . -iname '*.h' -o -iname '*.cpp' -o -iname '*.ino' | xargs -r clang-format -i
-
-      - name: Commit and Push Formatted Code
-        if: github.event_name == 'pull_request'
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "style: automated code formatting fixes by bot"
-          commit_user_name: "autonomous-dev-bot[bot]"
-          commit_user_email: "autonomous-bot@users.noreply.github.com"
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
