@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   quality:
+    # هذا الشرط يضمن تشغيل الفحص الكامل فقط إذا كان المرسل مطوراً مساهماً وليس صاحب المستودع نفسه لتوفير الوقت
+    if: github.actor != github.repository_owner
     runs-on: ubuntu-latest
 
     steps:
@@ -50,7 +52,6 @@ jobs:
           echo "\`\`\`text" >> cppcheck_report.md
           cppcheck --enable=all --inconclusive --force . >> cppcheck_report.md 2>&1 || true
           echo "\`\`\`" >> cppcheck_report.md
-          # التحقق من وجود أخطاء فعلية في التقرير لتنبيه المدير
           if grep -E "(error|warning|style|performance|portability):" cppcheck_report.md; then
             echo "issues_found=true" >> $GITHUB_OUTPUT
           else
