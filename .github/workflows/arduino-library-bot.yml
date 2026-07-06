@@ -7,10 +7,6 @@ on:
     types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
-  schedule:
-    - cron: "0 0 * * *"
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: write
@@ -19,22 +15,21 @@ permissions:
 
 jobs:
   quality:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          # نستخدم head_ref في الـ PR لضمان التعديل على فرع المطور مباشرة
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          # نضمن جلب مستودع المطور الأصلي حتى لو كان Fork
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Welcome New Contributor
-        if: github.event.action == 'opened'
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
         uses: actions/github-script@v7
         with:
           script: |
@@ -42,7 +37,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `🤖 Welcome @${context.actor}! Running formatting and checks now...`
+              body: `🤖 Welcome @${context.actor}! Thank you for contributing to MicroTaskX. Running automated formatting and quality checks now...`
             });
 
       - name: Run Code Formatter
@@ -50,47 +45,27 @@ jobs:
           sudo apt-get update && sudo apt-get install -y clang-format
           find . -iname '*.h' -o -iname '*.cpp' -o -iname '*.ino' | xargs -r clang-format -i
 
-      - name: Create Pull Request for Formatting Changes
-        id: create-pr
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "style: automated code formatting by bot"
-          title: "style: automated code formatting by autonomous bot"
-          body: "This PR was automatically created by the Autonomous Bot to fix code formatting."
-          branch: "bot/formatting-${{ github.run_id }}"
-          delete-branch: true
-          labels: "style, bot"
-          draft: false
+      - name: Check for Formatting Changes
+        id: git-check
+        run: |
+          git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
 
-      - name: Auto Approve & Merge Formatting PR
-        if: steps.create-pr.outputs.pull-request-operation == 'created'
+      - name: Commit & Push Formatting Changes Directly
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: automated code formatting by autonomous bot"
+          git push
+
+      - name: Comment on PR with Success Status
+        if: github.event_name == 'pull_request' && steps.git-check.outputs.changes == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            const prNumber = ${{ steps.create-pr.outputs.pull-request-number }};
-            if (!prNumber) return;
-
-            // Approve the PR
-            await github.rest.pulls.createReview({
+            github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: prNumber,
-              event: 'APPROVE',
-              body: '✅ Automatically approved by Autonomous Bot'
-            });
-
-            // Merge the PR
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-              merge_method: 'squash'
-            });
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: '🤖 Formatting applied and merged automatically.'
+              issue_number: context.issue.number,
+              body: `🤖 **Update:** Code formatting rules applied and committed directly to your branch! Everything is neat and ready for review.`
             });
