@@ -15,11 +15,7 @@ We take the security of MicroTaskX seriously. If you discover a security vulnera
 
 To report a vulnerability:
 
-1. Send an email to [famile.sherif@gmail.com].
-2. Include a detailed description of the vulnerability, the environment it was found in, and steps or code to reproduce it.
+1. Send an email to **famile.sherif@gmail.com**.
+2. Include a detailed description of the vulnerability, the target hardware (AVR/ESP32), and a minimal code snippet to reproduce it.
 
-Once received, we will:
-
-- Acknowledge the receipt of your report within 48 hours.
-- Work closely with you to understand and resolve the issue.
-- Provide a fix in an upcoming maintenance release and give proper credit to the reporter.
+Once received, we will acknowledge your report within 48 hours and release a patch transparently.

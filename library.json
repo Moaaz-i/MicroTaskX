@@ -37,7 +37,7 @@
     "type": "git",
     "url": "https://github.com/Moaaz-i/MicroTaskX.git"
   },
-  "frameworks": "arduino",
+  "frameworks": ["arduino"],
   "platforms": "*",
   "examples": "examples/*/*.ino",
   "license": "MIT"
