@@ -34,4 +34,4 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Reporting
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainer at [INSERT EMAIL OR CONTACT METHOD]. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainer at [EMAIL_ADDRESS] All complaints will be reviewed and investigated promptly and fairly.

@@ -15,7 +15,7 @@ We take the security of MicroTaskX seriously. If you discover a security vulnera
 
 To report a vulnerability:
 
-1. Send an email to [INSERT YOUR SECURITY EMAIL].
+1. Send an email to [EMAIL_ADDRESS].
 2. Include a detailed description of the vulnerability, the environment it was found in, and steps or code to reproduce it.
 
 Once received, we will:
