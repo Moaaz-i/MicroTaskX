@@ -1,57 +1,26 @@
 ## Description
 
-<!-- Provide a brief description of the changes in this PR -->
+Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context.
 
-## Related Issue
-
-<!-- Link to the issue this PR addresses -->
-
-Fixes #
+Fixes # (issue number)
 
 ## Type of Change
 
-<!-- Mark with an 'x' all applicable types -->
-
 - [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] New feature (non-blocking change which adds functionality)
 - [ ] Documentation update
-- [ ] Code refactoring
-- [ ] Performance improvement
-- [ ] CI/CD improvement
+- [ ] Code optimization / Refactoring
 
 ## How Has This Been Tested?
 
-<!-- Describe the tests you ran to verify your changes -->
+Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce.
 
-- [ ] Tested on Arduino Uno
-- [ ] Tested on ESP32
-- [ ] Tested on ESP8266
-- [ ] Tested on other board: <!-- specify -->
+- [ ] Tested on Hardware (e.g., ESP32 / Arduino Uno)
+- [ ] Compiled with PlatformIO / Arduino IDE with zero errors
 
-### Test Configuration
+## Checklist:
 
-- Library version:
-- Arduino IDE/CLI version:
-- Board package version:
-
-## Checklist
-
-<!-- Mark with an 'x' all items that apply -->
-
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published in downstream modules
-
-## Screenshots
-
-<!-- If applicable, add screenshots to help explain your changes -->
-
-## Additional Context
-
-<!-- Add any other context about the PR here -->
+- [ ] My code follows the code style of this project.
+- [ ] I have performed a self-review of my own code.
+- [ ] I have commented my code, particularly in hard-to-understand areas.
+- [ ] I have added/updated examples demonstrating the new behavior.

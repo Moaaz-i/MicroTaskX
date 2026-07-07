@@ -1,54 +1,23 @@
 ---
-name: Bug Report
-about: Report a bug in this Arduino library
+name: Bug report
+about: Create a report to help us improve MicroTaskX
 title: "[BUG] "
 labels: bug
 assignees: ""
 ---
 
-## Bug Description
+**Describe the bug**
+A clear and concise description of what the bug is.
 
-A clear description of what the bug is.
+**Hardware & Framework**
 
-## Environment
+- Microcontroller: [e.g. ESP32, Arduino Uno]
+- Core/Framework version: [e.g. ESP32 Core v2.0.11, Arduino AVR v1.8.6]
+- IDE: [e.g. PlatformIO, Arduino IDE 2.3]
 
-- Library version:
-- Arduino board:
-- Arduino IDE/CLI version:
-- Operating system:
-
-## Steps to Reproduce
-
-1. Go to '...'
-2. Upload this code '...'
-3. See error
-
-## Expected Behavior
-
-A clear description of what you expected to happen.
-
-## Actual Behavior
-
-A clear description of what actually happened.
-
-## Code Sample
+**To Reproduce**
+Steps to reproduce the behavior or a minimal sketch:
 
 ```cpp
-// Your code here
+// Paste your minimal code here
 ```
-
-## Serial Monitor Output
-
-```
-Paste relevant serial output here
-```
-
-## Additional Context
-
-Add any other context about the problem here.
-
-## Checklist
-
-- [ ] I have searched the existing issues
-- [ ] I have provided a minimal reproducible example
-- [ ] I have included all relevant environment details

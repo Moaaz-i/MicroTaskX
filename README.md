@@ -29,6 +29,19 @@ An ultra-lightweight, high-performance micro-RTOS and multitasking framework des
 
 ---
 
+## Performance & Memory Footprint
+
+MicroTaskX is designed to be extremely lightweight. Here is a rough comparison based on a basic 3-task setup on an Arduino Uno (ATmega328P):
+
+| Feature / Resource   | Standard `millis()` Loop | MicroTaskX   | Full RTOS (FreeRTOS) |
+| -------------------- | ------------------------ | ------------ | -------------------- |
+| **RAM Usage**        | ~10 bytes                | ~32 bytes    | ~1000+ bytes         |
+| **Flash Usage**      | Minimal                  | Very Low     | High                 |
+| **Code Cleanliness** | Messy conditional nests  | Clean APIs   | Complex setup        |
+| **Blocking**         | Non-blocking             | Non-blocking | Context switching    |
+
+---
+
 ## 📦 Project Structure
 
 ```text

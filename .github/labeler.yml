@@ -1,8 +1,11 @@
-library:
-  - "src/**"
+# Add labels to Pull Requests based on the files changed
+documentation:
+  - CHANGELOG.md
+  - README.md
+  - "docs/**/*"
 
 examples:
-  - "examples/**"
+  - "examples/**/*"
 
-docs:
-  - "README.md"
+core-code:
+  - "src/**/*"

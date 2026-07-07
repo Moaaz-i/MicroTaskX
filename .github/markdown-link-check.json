@@ -1,21 +1,13 @@
 {
-  "replacementPatterns": [
-    {
-      "pattern": "^/",
-      "replacement": "{{BASEURL}}/"
-    }
-  ],
-  "aliveStatusCodes": [200, 206],
   "ignorePatterns": [
     {
-      "pattern": "^https://github.com/"
-    },
-    {
-      "pattern": "^https://arduino.github.io/"
+      "pattern": "^https://img.shields.io"
     }
   ],
-  "retryOnFail": true,
-  "retryCount": 3,
+  "replacementPatterns": [],
+  "httpHeaders": [],
+  "timeout": "10s",
+  "retryCount": 2,
   "fallbackRetryDelay": "30s",
-  "timeout": "20s"
+  "aliveStatusCodes": [200, 206]
 }
